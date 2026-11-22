@@ -22,7 +22,10 @@ class Settings(BaseSettings):
 
     backend_host: str = "0.0.0.0"
     backend_port: int = 8000
-    cors_origins: str = "http://localhost:5173"
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    allowed_origins: str = ""  # preferred for deployment; comma-separated; falls back to cors_origins
+    cookie_samesite: Literal["lax", "strict", "none"] = "lax"
+    cookie_secure: bool = False
 
     sqlite_path: str = "data/world_watcher.db"
 
@@ -64,7 +67,8 @@ class Settings(BaseSettings):
 
     @property
     def cors_origin_list(self) -> list[str]:
-        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+        raw = self.allowed_origins or self.cors_origins
+        return [o.strip() for o in raw.split(",") if o.strip()]
 
 
 @lru_cache(maxsize=1)

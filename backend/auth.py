@@ -13,6 +13,7 @@ from backend.security import (
     set_initial_password,
     verify_password,
 )
+from config.settings import settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -60,12 +61,14 @@ async def logout(request: Request, response: Response):
 
 
 def _set_cookie(response: Response, token: str) -> None:
+    samesite = settings.cookie_samesite.lower()
+    secure = settings.cookie_secure or samesite == "none"
     response.set_cookie(
         key=SESSION_COOKIE,
         value=token,
         max_age=SESSION_TTL_SECONDS,
         httponly=True,
-        samesite="lax",
-        secure=False,
+        samesite=samesite,
+        secure=secure,
         path="/",
     )
