@@ -16,17 +16,31 @@ function wsUrl() {
   return `${proto}://${location.host}/ws/workers`
 }
 
+function formatApiError(detail, status) {
+  if (Array.isArray(detail)) {
+    return detail.map((d) => d.msg || JSON.stringify(d)).join('; ')
+  }
+  if (detail && typeof detail === 'object') return detail.msg || JSON.stringify(detail)
+  if (typeof detail === 'string' && detail) return detail
+  return `Request failed (${status})`
+}
+
 async function api(path, opts = {}) {
   const url = path.startsWith('http') ? path : `${API_BASE}${path}`
-  const res = await fetch(url, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
-    ...opts,
-  })
+  let res
+  try {
+    res = await fetch(url, {
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
+      ...opts,
+    })
+  } catch (err) {
+    throw new Error(`Cannot reach backend at ${url}. Is the backend running and VITE_API_URL configured?`)
+  }
   if (!res.ok) {
-    let detail = 'request failed'
-    try { detail = (await res.json()).detail || detail } catch {}
-    throw new Error(detail)
+    let detail
+    try { detail = (await res.json()).detail } catch {}
+    throw new Error(formatApiError(detail, res.status))
   }
   return res.json()
 }
