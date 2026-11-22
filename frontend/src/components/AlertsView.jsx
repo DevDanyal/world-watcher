@@ -4,8 +4,18 @@ const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
 
 async function api(path, opts = {}) {
   const url = path.startsWith('http') ? path : `${API_BASE}${path}`
-  const res = await fetch(url, { credentials: 'include', headers: { 'Content-Type': 'application/json' }, ...opts })
-  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'request failed')
+  let res
+  try {
+    res = await fetch(url, { credentials: 'include', headers: { 'Content-Type': 'application/json' }, ...opts })
+  } catch {
+    throw new Error(API_BASE ? `Cannot reach backend at ${API_BASE}.` : 'Backend not configured. Set VITE_API_URL in Vercel.')
+  }
+  if (!res.ok) {
+    let detail
+    try { detail = (await res.json()).detail } catch {}
+    if (!API_BASE && (res.status === 404 || res.status === 405)) throw new Error('Backend not configured. Set VITE_API_URL in Vercel.')
+    throw new Error(detail || `Request failed (${res.status})`)
+  }
   return res.json()
 }
 

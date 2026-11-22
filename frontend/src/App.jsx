@@ -16,12 +16,18 @@ function wsUrl() {
   return `${proto}://${location.host}/ws/workers`
 }
 
-function formatApiError(detail, status) {
+function formatApiError(detail, status, url) {
   if (Array.isArray(detail)) {
     return detail.map((d) => d.msg || JSON.stringify(d)).join('; ')
   }
   if (detail && typeof detail === 'object') return detail.msg || JSON.stringify(detail)
   if (typeof detail === 'string' && detail) return detail
+  if (!API_BASE && (status === 404 || status === 405)) {
+    return 'Backend is not configured for this frontend. Set VITE_API_URL and VITE_WS_URL in Vercel to your deployed backend URL.'
+  }
+  if (status === 404 || status === 405) {
+    return `API endpoint not found (${status}) at ${url}. Check VITE_API_URL points to the backend.`
+  }
   return `Request failed (${status})`
 }
 
@@ -35,12 +41,18 @@ async function api(path, opts = {}) {
       ...opts,
     })
   } catch (err) {
-    throw new Error(`Cannot reach backend at ${url}. Is the backend running and VITE_API_URL configured?`)
+    const hint = API_BASE
+      ? `Cannot reach backend at ${API_BASE}. Check that the backend is running and allows this origin in CORS_ORIGINS.`
+      : 'Backend is not configured. Set VITE_API_URL and VITE_WS_URL in Vercel to your deployed backend URL.'
+    throw new Error(hint)
   }
   if (!res.ok) {
     let detail
-    try { detail = (await res.json()).detail } catch {}
-    throw new Error(formatApiError(detail, res.status))
+    const contentType = res.headers.get('content-type') || ''
+    if (contentType.includes('application/json')) {
+      try { detail = (await res.json()).detail } catch {}
+    }
+    throw new Error(formatApiError(detail, res.status, url))
   }
   return res.json()
 }
